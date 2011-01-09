@@ -4,7 +4,7 @@ use base qw/Mojolicious::Plugin/;
 use Carp qw/croak/;
 use strict; 
 
-our $VERSION='0.01';
+our $VERSION='0.02';
 
 __PACKAGE__->attr(providers=>sub {
     return {
@@ -40,6 +40,8 @@ sub register {
     $app->renderer->add_helper(
         get_token => sub {
             my ($c,$provider_id,%args)= @_;
+            $args{callback} ||= $args{on_success};
+            $args{error_handler} ||= $args{on_failure};
             croak "Unknown provider $provider_id" 
                 unless (my $provider=$self->providers->{$provider_id});
             if($c->param('code')) {
@@ -84,7 +86,7 @@ Mojolicious::Plugin::OAuth2 - Auth against OAUth2 APIs
 
 =head1 SYNOPSIS 
 
-   plugin 'oauth2',
+   plugin 'o_auth2',
        facebook => {
           key => 'foo',
           secret => 'bar' 
@@ -121,11 +123,11 @@ API requests. Supported arguments:
 
 =over 4
 
-=item callback
+=item on_success
 
 Callback method to handle the provided token. Gets the token as it's only argument
 
-=item error_callback
+=item on_failure
 
 Callback method to handle any error. Gets the failed transaction as it's only argument.
 
