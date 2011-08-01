@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Mojolicious-Plugin-OAuth2
-version:            0.1
+version:            0.2
 abstract:           Authenticate against OAuth2 providers
 author:
     - Marcus Ramberg <mramberg@cpan.org>
@@ -9,7 +9,7 @@ distribution_type:  module
 configure_requires:  {}
 build_requires:  {}
 requires:
-    Mojolicious:  1.01
+    Mojolicious:  1.64
     perl:         5.008007
 resources:
     bugtracker:  http://github.com/kraih/mojolicious-plugin-oauth2/issues
