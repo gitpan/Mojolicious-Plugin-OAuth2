@@ -1,6 +1,6 @@
 --- #YAML:1.0
 name:               Mojolicious-Plugin-OAuth2
-version:            0.2
+version:            0.3
 abstract:           Authenticate against OAuth2 providers
 author:
     - Marcus Ramberg <mramberg@cpan.org>
@@ -20,7 +20,7 @@ no_index:
         - t
         - inc
         - t
-generated_by:       ExtUtils::MakeMaker version 6.56
+generated_by:       ExtUtils::MakeMaker version 6.57_05
 meta-spec:
     url:      http://module-build.sourceforge.net/META-spec-v1.4.html
     version:  1.4
