@@ -4,7 +4,7 @@ use base qw/Mojolicious::Plugin/;
 use Carp qw/croak/;
 use strict; 
 
-our $VERSION='0.4';
+our $VERSION='0.5';
 
 __PACKAGE__->attr(providers=>sub {
     return {
@@ -172,7 +172,7 @@ Use async request handling to fetch token.
 
 Takes a hashref of providers, each one with a hashref of options. For instance:
 
-    plugin 'oauth2', {
+    plugin 'OAuth2', {
        iusethis => {
           authorize_url => 'iut.com/auth',
           token_url => 'iut.com/token',
