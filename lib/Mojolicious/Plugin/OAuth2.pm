@@ -1,10 +1,11 @@
 package Mojolicious::Plugin::OAuth2;
 
 use base qw/Mojolicious::Plugin/;
+use Mojo::UserAgent;
 use Carp qw/croak/;
 use strict; 
 
-our $VERSION='0.6';
+our $VERSION='0.7';
 
 __PACKAGE__->attr(providers=>sub {
     return {
@@ -28,6 +29,8 @@ __PACKAGE__->attr(providers=>sub {
     };
 });
 
+__PACKAGE__->attr(_ua=>sub { Mojo::UserAgent->new });
+
 sub register {
     my ($self,$app,$config)=@_;
     my $providers=$self->providers;
@@ -42,6 +45,7 @@ sub register {
     }
     $self->providers($providers);
     
+    $app->renderer->add_helper(get_authorize_url => sub { $self->_get_authorize_url(@_) });
     $app->renderer->add_helper(
         get_token => sub {
             my ($c,$provider_id,%args)= @_;
@@ -59,39 +63,52 @@ sub register {
                     grant_type    => 'authorization_code',
                 };
                 if ($args{async}) {
-                    $c->ua->post_form($fb_url->to_abs, $params => sub {
+                    $self->_ua->post_form($fb_url->to_abs, $params => sub {
                         my ($client,$tx)=@_;
                         if (my $res=$tx->success) {
                           &{$args{callback}}($self->_get_auth_token($res));
                         }
                         else {
                             my ($err)=$tx->error;
-                            &{$args{error_handler}}($tx) if(exists $args{error_handler});
+                            $args{error_handler}->($tx) if defined $args{error_handler};
                         }
                         });
                         $c->render_later;
                 }
                 else {
-                    my $tx=$c->ua->post_form($fb_url->to_abs,$params);
+                    my $tx=$self->_ua->post_form($fb_url->to_abs,$params);
                     if (my $res=$tx->success) {
                          &{$args{callback}}($self->_get_auth_token($res));
                      }
                      else {
                          my ($err)=$tx->error;
-                         &{$args{error_handler}}($tx) if(exists $args{error_handler});
+                         $args{error_handler}->($tx) if defined $args{error_handler};
                      }
                 }
             } else {
-                my $fb_url=Mojo::URL->new($provider->{authorize_url});
-                $fb_url->query->append(
-                    client_id=> $provider->{key},
-                    redirect_uri=>$c->url_for->to_abs->to_string,
-                );
-                $fb_url->query->append(scope => $args{scope}) 
-                    if exists $args{scope};
-                $c->redirect_to($fb_url);
+                $c->redirect_to($self->_get_authorize_url($c, $provider_id, %args));
              }
     });
+}
+
+sub _get_authorize_url {
+    my ($self,$c,$provider_id,%args)= @_;
+    my $fb_url;
+
+    croak "Unknown provider $provider_id"
+        unless (my $provider=$self->providers->{$provider_id});
+
+    $fb_url=Mojo::URL->new($provider->{authorize_url});
+    $fb_url->query->append(
+        client_id=> $provider->{key},
+        redirect_uri=>$args{'redirect_uri'} || $c->url_for->to_abs->to_string,
+    );
+    $fb_url->query->append(scope => $args{scope})
+        if exists $args{scope};
+    $fb_url->query($args{authorize_query})
+        if exists $args{authorize_query};
+
+    return $fb_url;
 }
 
 sub _get_auth_token {

@@ -24,4 +24,4 @@ resources:
   bugtracker: http://github.com/marcusramberg/mojolicious-plugin-oauth2/issues
   license: http://dev.perl.org/licenses/
   repository: http://github.com/marcusramberg/mojolicious-plugin-oauth2
-version: 0.6
+version: 0.7
