@@ -5,7 +5,7 @@ use Mojo::UserAgent;
 use Carp qw/croak/;
 use strict; 
 
-our $VERSION='0.7';
+our $VERSION='0.8';
 
 __PACKAGE__->attr(providers=>sub {
     return {
@@ -48,6 +48,7 @@ sub register {
     $app->renderer->add_helper(get_authorize_url => sub { $self->_get_authorize_url(@_) });
     $app->renderer->add_helper(
         get_token => sub {
+            my $cb = (@_ % 2 == 1 and ref $_[-1] eq 'CODE') ? pop : undef;
             my ($c,$provider_id,%args)= @_;
             $args{callback} ||= $args{on_success};
             $args{error_handler} ||= $args{on_failure};
@@ -62,28 +63,29 @@ sub register {
                     redirect_uri  => $c->url_for->to_abs->to_string,
                     grant_type    => 'authorization_code',
                 };
-                if ($args{async}) {
+                if ($args{async} or $cb) {
                     $self->_ua->post_form($fb_url->to_abs, $params => sub {
                         my ($client,$tx)=@_;
                         if (my $res=$tx->success) {
-                          &{$args{callback}}($self->_get_auth_token($res));
+                            my $token = $self->_get_auth_token($res);
+                            $cb ? $self->$cb($token, $tx) : $args{callback}->($token);
                         }
                         else {
-                            my ($err)=$tx->error;
-                            $args{error_handler}->($tx) if defined $args{error_handler};
+                            $cb ? $self->$cb(undef, $tx) : $args{callback} ? $args{callback}->($tx) : 'noop';
                         }
-                        });
-                        $c->render_later;
+                    });
+                    $c->render_later;
                 }
                 else {
                     my $tx=$self->_ua->post_form($fb_url->to_abs,$params);
                     if (my $res=$tx->success) {
-                         &{$args{callback}}($self->_get_auth_token($res));
-                     }
-                     else {
-                         my ($err)=$tx->error;
-                         $args{error_handler}->($tx) if defined $args{error_handler};
-                     }
+                        my $token = $self->_get_auth_token($res);
+                        $args{callback}->($token) if $args{callback};
+                        return $token;
+                    }
+                    elsif($args{error_handler}) {
+                        $args{error_handler}->($tx);
+                    }
                 }
             } else {
                 $c->redirect_to($self->_get_authorize_url($c, $provider_id, %args));
@@ -98,10 +100,12 @@ sub _get_authorize_url {
     croak "Unknown provider $provider_id"
         unless (my $provider=$self->providers->{$provider_id});
 
+    $args{scope} ||= $self->providers->{$provider_id}{scope};
+    $args{redirect_uri} ||= $c->url_for->to_abs->to_string;
     $fb_url=Mojo::URL->new($provider->{authorize_url});
     $fb_url->query->append(
         client_id=> $provider->{key},
-        redirect_uri=>$args{'redirect_uri'} || $c->url_for->to_abs->to_string,
+        redirect_uri=>$args{'redirect_uri'},
     );
     $fb_url->query->append(scope => $args{scope})
         if exists $args{scope};
@@ -141,6 +145,23 @@ Mojolicious::Plugin::OAuth2 - Auth against OAUth2 APIs
       });
    };
 
+   get '/auth' => sub {
+      my $self = shift;
+      Mojo::IOLoop->delay(
+          sub {
+              my $delay = shift;
+              $self->get_token(facebook => $delay->begin)
+          },
+          sub {
+              my($delay, $token, $tx) = @_;
+              return $self->render_text($tx->res->error) unless $token;
+              return $self->render_text($token);
+          },
+      );
+   };
+
+   my $token = $self->get_token('facebook'); # synchronous request
+
 =head1 DESCRIPTION
 
 This Mojolicious plugin allows you to easily authenticate against a OAuth2 
@@ -155,6 +176,35 @@ dependency required to support it. Call
 to check if it is installed. 
 
 =head1 HELPERS
+
+=head2 get_authorize_url <$provider>, <%args>
+
+Returns a L<Mojo::URL> object which contain the authorize URL. This is
+useful if you want to add the authorize URL as a link to your webpage
+instead of doing a redirect like C<get_token()> does. C<%args> is optional,
+but can contain:
+
+=over 4
+
+=item * authorize_query
+
+Either a hash-ref or an array-ref which can be used to give extra query
+params to the URL.
+
+    $url->query($authorize_url);
+
+=item * redirect_uri
+
+Useful if you want to go back to a different page than what you came from.
+The default is:
+
+    $c->url_for->to_abs->to_string
+
+=item * scope
+
+Scope to ask for credentials to. Should be a space separated list.
+
+=back
 
 =head2 get_token <$provider>, <%args>
 
@@ -180,6 +230,18 @@ Scope to ask for credentials to. Should be a space separated list.
 =item async
 
 Use async request handling to fetch token.
+
+=item delay
+
+    $self->get_token($provider => ..., sub {
+        my($oauth2, $token, $tx) = @_;
+        ...
+    })
+
+"delay" is not an key in the C<%args> hash, but rather a callback you can give
+at the end of the argument list. This callback will then force "async", and
+be used as both a success and error handle: C<$token> will contain a string on
+success and undefined on error.
 
 =back
 
