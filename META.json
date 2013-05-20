@@ -4,7 +4,7 @@
       "Marcus Ramberg <mramberg@cpan.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.112150",
+   "generated_by" : "ExtUtils::MakeMaker version 6.62, CPAN::Meta::Converter version 2.120921",
    "license" : [
       "artistic_2"
    ],
@@ -29,7 +29,7 @@
       },
       "runtime" : {
          "requires" : {
-            "IO::Socket::SSL" : 0,
+            "IO::Socket::SSL" : "0",
             "Mojolicious" : "1.64",
             "perl" : "5.008007"
          }
@@ -47,5 +47,5 @@
          "url" : "http://github.com/marcusramberg/mojolicious-plugin-oauth2"
       }
    },
-   "version" : "0.8"
+   "version" : "0.9"
 }

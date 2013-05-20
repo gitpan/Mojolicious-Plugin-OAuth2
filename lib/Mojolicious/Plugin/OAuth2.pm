@@ -5,7 +5,7 @@ use Mojo::UserAgent;
 use Carp qw/croak/;
 use strict; 
 
-our $VERSION='0.8';
+our $VERSION='0.9';
 
 __PACKAGE__->attr(providers=>sub {
     return {
@@ -64,7 +64,7 @@ sub register {
                     grant_type    => 'authorization_code',
                 };
                 if ($args{async} or $cb) {
-                    $self->_ua->post_form($fb_url->to_abs, $params => sub {
+                    $self->_ua->post($fb_url->to_abs, form => $params => sub {
                         my ($client,$tx)=@_;
                         if (my $res=$tx->success) {
                             my $token = $self->_get_auth_token($res);
@@ -77,7 +77,7 @@ sub register {
                     $c->render_later;
                 }
                 else {
-                    my $tx=$self->_ua->post_form($fb_url->to_abs,$params);
+                    my $tx=$self->_ua->post($fb_url->to_abs, form => $params);
                     if (my $res=$tx->success) {
                         my $token = $self->_get_auth_token($res);
                         $args{callback}->($token) if $args{callback};
