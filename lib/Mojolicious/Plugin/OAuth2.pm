@@ -5,7 +5,7 @@ use Mojo::UserAgent;
 use Carp qw/croak/;
 use strict; 
 
-our $VERSION='1.0';
+our $VERSION='1.1';
 
 __PACKAGE__->attr(providers=>sub {
     return {
@@ -53,6 +53,7 @@ sub register {
                 unless (my $provider=$self->providers->{$provider_id});
             if($c->param('code')) {
                 my $fb_url=Mojo::URL->new($provider->{token_url});
+                $fb_url->host($args{host}) if exists $args{host};
                 my $params={
                     client_secret => $provider->{secret},
                     client_id     => $provider->{key},
@@ -104,6 +105,7 @@ sub _get_authorize_url {
     $args{scope} ||= $self->providers->{$provider_id}{scope};
     $args{redirect_uri} ||= $c->url_for->to_abs->to_string;
     $fb_url=Mojo::URL->new($provider->{authorize_url});
+    $fb_url->host($args{host}) if exists $args{host};
     $fb_url->query->append(
         client_id=> $provider->{key},
         redirect_uri=>$args{'redirect_uri'},
@@ -120,7 +122,7 @@ sub _get_authorize_url {
 
 sub _get_auth_token {
   my ($self,$res)=@_;
-  if($res->headers->content_type eq 'application/json') {
+  if($res->headers->content_type =~ m!^application/json(;\s+charset=\S+)?$!) {
     return $res->json->{access_token};
   }
   my $qp=Mojo::Parameters->new($res->body);
@@ -131,7 +133,7 @@ sub _get_auth_token {
 
 =head1 NAME
 
-Mojolicious::Plugin::OAuth2 - Auth against OAUth2 APIs
+Mojolicious::Plugin::OAuth2 - Auth against OAuth2 APIs
 
 =head1 SYNOPSIS 
 
@@ -189,6 +191,13 @@ but can contain:
 
 =over 4
 
+=item * host
+
+Useful if your provider uses different hosts for accessing different accounts.
+The default is specified in the provider configuration.
+
+    $url->host($host);
+
 =item * authorize_query
 
 Either a hash-ref or an array-ref which can be used to give extra query
@@ -218,7 +227,7 @@ as a GET parameter called C<state> in the URL that the user will return to.
 =head2 get_token <$provider>, <%args>
 
 Will redirect to the provider to allow for authorization, then fetch the 
-token. The token gets provided as a parmeter to the callback function. 
+token. The token gets provided as a parameter to the callback function. 
 Usually you want to store the token in a session or similar to use for 
 API requests. Supported arguments:
 
@@ -251,6 +260,11 @@ Use async request handling to fetch token.
 at the end of the argument list. This callback will then force "async", and
 be used as both a success and error handle: C<$token> will contain a string on
 success and undefined on error.
+
+=item host
+
+Useful if your provider uses different hosts for accessing different accounts.
+The default is specified in the provider configuration.
 
 =back
 
